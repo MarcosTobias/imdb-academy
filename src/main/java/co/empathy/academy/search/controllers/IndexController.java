@@ -6,8 +6,6 @@ import co.empathy.academy.search.utils.ElasticUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
 import java.util.Map;
 
 @RestController
