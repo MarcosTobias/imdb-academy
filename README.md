@@ -36,3 +36,12 @@ running at:
 ```
 http://localhost:8080/swagger-ui/index.html
 ```
+&nbsp;
+
+Indexing operations are protected. For using them, the request
+must contain a header with:
+```
+key: x-api-key                  
+
+value: searchRules
+```
