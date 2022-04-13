@@ -24,6 +24,7 @@ import java.util.Map;
  */
 @Tag(name = "Private controller", description = "Allows to create and remove indexes. Also for indexing documents")
 @RestController
+@RequestMapping("/admin/api")
 public class IndexController {
     private final ElasticsearchClient client = ElasticUtils.getClient();
 

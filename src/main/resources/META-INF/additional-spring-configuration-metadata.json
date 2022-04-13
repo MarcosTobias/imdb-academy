@@ -1,0 +1,8 @@
+{
+  "properties": [
+    {
+      "name": "apiKey",
+      "type": "java.lang.String",
+      "description": "apiKey for authorising requests"
+  }
+] }
