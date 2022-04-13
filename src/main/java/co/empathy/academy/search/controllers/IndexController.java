@@ -1,8 +1,12 @@
 package co.empathy.academy.search.controllers;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.indices.IndexState;
+import co.empathy.academy.search.exception.types.IndexAlreadyExistsException;
+import co.empathy.academy.search.exception.types.IndexDoesNotExistException;
+import co.empathy.academy.search.exception.types.InternalServerException;
 import co.empathy.academy.search.utils.ElasticUtils;
 import co.empathy.academy.search.utils.ReadDataUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,18 +51,19 @@ public class IndexController {
      * @return true if the index has been created correctly, false otherwise
      */
     @Operation(summary = "Creates an index with the name provided")
-    @ApiResponse(responseCode = "200", description="Index created", content = { @Content(mediaType = "application/json")})
-
+    @ApiResponse(responseCode = "200", description = "Index created", content = { @Content(mediaType = "application/json")})
+    @ApiResponse(responseCode = "400", description = "Index already exists", content = { @Content(mediaType = "application/json")})
+    @ApiResponse(responseCode = "500", description = "Problems connecting to ElasticSearch", content = { @Content(mediaType = "application/json")})
     @PutMapping("/{index}")
     public boolean createIndex(@PathVariable String index) {
         try {
             return Boolean.TRUE.equals(client.indices().create(c -> c.index(index)).acknowledged());
 
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new InternalServerException("There was a problem connecting to ElasticSearch", e);
+        } catch (ElasticsearchException e) {
+            throw new IndexAlreadyExistsException("Index '" + index + "' already exists", e);
         }
-
-        return false;
     }
 
     /**
@@ -66,15 +71,19 @@ public class IndexController {
      * @param index name of the index to remove
      * @return true if the index has been deleted successfully, false otherwise
      */
+    @Operation(summary = "Removes the index with the name provided")
+    @ApiResponse(responseCode = "200", description = "Index removed", content = { @Content(mediaType = "application/json")})
+    @ApiResponse(responseCode = "400", description = "Index does not exist", content = { @Content(mediaType = "application/json")})
+    @ApiResponse(responseCode = "500", description = "Problems connecting to ElasticSearch", content = { @Content(mediaType = "application/json")})
     @DeleteMapping("/{index}")
     public boolean deleteIndex(@PathVariable String index) {
         try {
             return client.indices().delete(c -> c.index(index)).acknowledged();
         } catch(IOException e) {
-            e.printStackTrace();
+            throw new InternalServerException("There was a problem connecting to ElasticSearch", e);
+        } catch (ElasticsearchException e) {
+            throw new IndexDoesNotExistException("Index '" + index + "' does not exist", e);
         }
-
-        return false;
     }
 
     /**
@@ -82,6 +91,9 @@ public class IndexController {
      * Then, id adds the mapping for the index
      * Finally, it indexes every document stored in the title.basics.tsv file on the resources folder
      */
+    @Operation(summary = "Creates the field index, puts mapping and index the documents")
+    @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
+    @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
     @GetMapping("/index_documents")
     public void indexDocuments() {
         try {
@@ -117,8 +129,8 @@ public class IndexController {
                 );
             }
 
-        } catch(Exception e) {
-            e.printStackTrace();
+        } catch(IOException | ElasticsearchException e) {
+            throw new InternalServerException("There was a problem processing your request", e);
         }
     }
 
@@ -177,8 +189,8 @@ public class IndexController {
                             )
                     )
             );
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch(IOException | ElasticsearchException e) {
+            throw new InternalServerException("There was a problem processing your request", e);
         }
     }
 }
