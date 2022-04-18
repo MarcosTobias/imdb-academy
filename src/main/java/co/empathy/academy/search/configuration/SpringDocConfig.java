@@ -12,7 +12,15 @@ public class SpringDocConfig {
     public GroupedOpenApi publicApi() {
         return GroupedOpenApi.builder()
                 .group("imdb-public")
-                .pathsToMatch("/**")
+                .pathsToMatch("/api/**")
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi adminApi() {
+        return GroupedOpenApi.builder()
+                .group("imdb-admin")
+                .pathsToMatch("/admin/**")
                 .build();
     }
 

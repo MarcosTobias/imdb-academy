@@ -21,7 +21,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
      * @param request in which the exception occurred
      * @return JSON with the response and the error code
      */
-    @ExceptionHandler(value = { IndexAlreadyExistsException.class, IndexDoesNotExistException.class })
+    @ExceptionHandler(value = { IndexAlreadyExistsException.class, IndexDoesNotExistException.class, IllegalArgumentException.class })
     protected ResponseEntity<Object> handleConflictBadRequest(RuntimeException e, WebRequest request) {
         return buildResponseEntity(new ApiError(HttpStatus.BAD_REQUEST, e.getMessage(), e.getCause()));
     }
@@ -45,6 +45,4 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleConflictInternal(RuntimeException e, WebRequest request) {
         return buildResponseEntity(new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), e.getCause()));
     }
-    
-
 }
