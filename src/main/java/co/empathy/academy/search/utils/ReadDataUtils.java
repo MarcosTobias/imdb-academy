@@ -1,36 +1,33 @@
 package co.empathy.academy.search.utils;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.empathy.academy.search.exception.types.InternalServerException;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Used for reading data from the file specified on batches
  */
 public class ReadDataUtils {
+    private final ElasticsearchClient client = ElasticUtils.getClient();
     //Size of the batches
-    private int batchSize = 5000;
-
+    private int batchSize = 100000;
     //Reader for the file
-    private BufferedReader reader = null;
-
-    //Determines if the file has been read entirely
-    private boolean ready = true;
+    private String filePath = "";
 
     /**
      * Creates a ReadDataUtils object
      * @param filePath of the file that is wanted to be read
      * @param batchSize size of the batches to be used
-     * @throws FileNotFoundException in case the file specified is not found
      */
-    public ReadDataUtils(String filePath, int batchSize) throws FileNotFoundException {
+    public ReadDataUtils(String filePath, int batchSize) {
         this(filePath);
         this.batchSize= batchSize;
     }
@@ -38,38 +35,22 @@ public class ReadDataUtils {
     /**
      * Creates a ReadDataUtils object
      * @param filePath of the file that is wanted to be read
-     * @throws FileNotFoundException in case the file specified is not found
      */
-    public ReadDataUtils(String filePath) throws FileNotFoundException {
-        this.reader = new BufferedReader(new FileReader(filePath));
-
-        //Skips the first line with the name of the columns
-        skipFirstLine();
+    public ReadDataUtils(String filePath) {
+        this.filePath = filePath;
     }
 
     /**
-     * Skips the first line of the file
-     */
-    private void skipFirstLine() {
-        try {
-            reader.readLine();
-        } catch(IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Returns a map consisting on the id of the specified line, and the value
+     * Returns a JsonContent consisting on the id of the specified line, and the value
      * being a JSON with the different fields of the line parsed
      * @param line containing the document that we want to index
-     * @return a Map with the id and the document in JSON format
+     * @return a JsonContent with the id and the document in JSON format
      */
-    private Map<String, JsonObject> getJson(String line) {
+    private JsonContent getJson(String line) {
         String[] fields = line.split("\t");
-        Map<String, JsonObject> element = new HashMap<>();
 
 
-        element.put(fields[0], Json.createObjectBuilder()
+        return new JsonContent(fields[0], Json.createObjectBuilder()
                 .add("titleType", fields[1])
                 .add("primaryTitle", fields[2])
                 .add("originalTitle", fields[3])
@@ -79,54 +60,57 @@ public class ReadDataUtils {
                 .add("runtimeMinutes", StringToIntConverter.getInt(fields[7]))
                 .add("genres", fields[8])
                 .build());
-
-        return element;
     }
 
     /**
-     * Returns if the document has been read entirely
-     * @return boolean
+     * Index the data
      */
-    public boolean ready() {
-        return this.ready;
-    }
-
-    /**
-     * Returns a map containing as many documents as specified in the batchSize.
-     * @return map containind the ids and documents in JSON format
-     */
-    public Map<String, JsonObject> getDataBatch() {
-        //iterator
-        int counter = 0;
-
+    public void indexData() {
         try {
-            //map that is going to be returned
-            Map<String, JsonObject> bulkOps = new HashMap<>();
+            List<String> lines = Files.readAllLines(Path.of(this.filePath));
 
-            //Adding batchSize documents
-            while(counter < batchSize) {
-                //Read the current line
-                String currentLine = reader.readLine();
+            long current = 1;
+            long localBatch = this.batchSize;
 
-                //If the line is not null we add it to the map
-                if (currentLine != null) {
-                    bulkOps.putAll(getJson(currentLine));
+            if(this.batchSize > lines.size()) localBatch = lines.size() - 1L;
 
-                //If the line is null, then we must mark the document as read and stop
-                } else {
-                    this.ready = false;
-                    break;
-                }
+            while(current < lines.size() - 1L) {
+                if (current + batchSize > lines.size())
+                    localBatch = lines.size() - current;
 
-                counter++;
+                long finalCurrent = current;
+                long finalLocalBatch = localBatch;
+
+                client.bulk(_0 -> _0
+                        .operations(lines.stream().skip(finalCurrent).limit(finalLocalBatch)
+                                .map(this::getJson)
+                                .map(x ->
+                                        BulkOperation.of(_1 -> _1
+                                                .index(_2 -> _2
+                                                        .index("films")
+                                                        .id(x.id)
+                                                        .document(x.json)
+                                                )
+                                        )
+                                ).toList())
+                );
+
+
+                System.out.println("Indexed");
+                current += batchSize;
             }
-
-            return bulkOps;
-        } catch(IOException e) {
-            e.printStackTrace();
+        } catch(IOException | ElasticsearchException e) {
+            throw new InternalServerException("There was a problem processing your request", e);
         }
+    }
 
-        //In case the file provided only has one line that has been skipped
-        return Collections.emptyMap();
+    private static class JsonContent {
+        protected String id;
+        protected JsonObject json;
+
+        public JsonContent(String id, JsonObject json) {
+            this.id = id;
+            this.json = json;
+        }
     }
 }

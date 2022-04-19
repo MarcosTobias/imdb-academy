@@ -2,7 +2,6 @@ package co.empathy.academy.search.controllers;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
-import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.indices.IndexState;
 import co.empathy.academy.search.exception.types.IndexAlreadyExistsException;
 import co.empathy.academy.search.exception.types.IndexDoesNotExistException;
@@ -10,6 +9,7 @@ import co.empathy.academy.search.exception.types.InternalServerException;
 import co.empathy.academy.search.utils.ElasticUtils;
 import co.empathy.academy.search.utils.ReadDataUtils;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,6 +55,7 @@ public class IndexController {
     @ApiResponse(responseCode = "200", description = "Index created", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "400", description = "Index already exists", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Problems connecting to ElasticSearch", content = { @Content(mediaType = "application/json")})
+    @Parameter(name = "index", description = "Name of the index we want to create", required = true)
     @PutMapping("/{index}")
     public boolean createIndex(@PathVariable String index) {
         try {
@@ -76,6 +77,7 @@ public class IndexController {
     @ApiResponse(responseCode = "200", description = "Index removed", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "400", description = "Index does not exist", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Problems connecting to ElasticSearch", content = { @Content(mediaType = "application/json")})
+    @Parameter(name = "index", description = "Name of the index we want to remove", required = true)
     @DeleteMapping("/{index}")
     public boolean deleteIndex(@PathVariable String index) {
         try {
@@ -96,13 +98,13 @@ public class IndexController {
     @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
     @GetMapping("/index_documents")
-    public void indexDocuments() {
+    public void indexDocuments(@RequestParam String filePath, @RequestParam(required = false) String ratingsPath) {
         try {
             try {
                 //Remove existing index
                 client.indices().delete(c -> c.index("films"));
             } catch(Exception e) {
-                //in case the index does not exist
+                //in case the index does not exist, ignore and keep going
             }
 
             //Create the index for storing films
@@ -112,24 +114,9 @@ public class IndexController {
             putFilmsMapping();
 
             //Creates the reader and set the batchSize
-            ReadDataUtils rdu = new ReadDataUtils("src/main/resources/title.basics.tsv", 10000);
+            ReadDataUtils rdu = new ReadDataUtils(filePath);
 
-            //While the file still has lines left
-            while(rdu.ready()) {
-                //Add them to the collection in batches of batchSize size
-                client.bulk(_0 -> _0
-                        .operations(rdu.getDataBatch().entrySet().stream().map(x ->
-                                BulkOperation.of(_1 -> _1
-                                        .index(_2 -> _2
-                                                .index("films")
-                                                .id(x.getKey())
-                                                .document(x.getValue())
-                                        )
-                                )
-                        ).toList())
-                );
-            }
-
+            new Thread(rdu::indexData).start();
         } catch(IOException | ElasticsearchException e) {
             throw new InternalServerException("There was a problem processing your request", e);
         }
@@ -143,8 +130,8 @@ public class IndexController {
             client.indices().putMapping(_0 -> _0
                     .index("films")
                     .properties("titleType", _1 -> _1
-                            .text(_2 -> _2
-                                    .analyzer("standard")
+                            .keyword(_2 -> _2
+                                    .boost(1.0)
                             )
                     )
                     .properties("primaryTitle", _1 -> _1
@@ -185,8 +172,8 @@ public class IndexController {
                             )
                     )
                     .properties("genres", _1 -> _1
-                            .text(_2 -> _2
-                                    .analyzer("standard")
+                            .keyword(_2 -> _2
+                                    .boost(1.0)
                             )
                     )
             );
