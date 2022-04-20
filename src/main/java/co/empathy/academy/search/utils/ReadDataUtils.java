@@ -10,17 +10,21 @@ import jakarta.json.JsonObject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Used for reading data from the file specified on batches
  */
 public class ReadDataUtils {
     private final ElasticsearchClient client = ElasticUtils.getClient();
+    Map<String, JsonObject> ratings = new HashMap<>();
     //Size of the batches
     private int batchSize = 100000;
     //Reader for the file
     private String filePath = "";
+    private String ratingsFilePath = "";
 
     /**
      * Creates a ReadDataUtils object
@@ -40,6 +44,11 @@ public class ReadDataUtils {
         this.filePath = filePath;
     }
 
+    public ReadDataUtils(String filePath, String ratingsFilePath) {
+        this.filePath = filePath;
+        this.ratingsFilePath = ratingsFilePath;
+    }
+
     /**
      * Returns a JsonContent consisting on the id of the specified line, and the value
      * being a JSON with the different fields of the line parsed
@@ -49,8 +58,7 @@ public class ReadDataUtils {
     private JsonContent getJson(String line) {
         String[] fields = line.split("\t");
 
-
-        return new JsonContent(fields[0], Json.createObjectBuilder()
+        var builder = Json.createObjectBuilder()
                 .add("titleType", fields[1])
                 .add("primaryTitle", fields[2])
                 .add("originalTitle", fields[3])
@@ -58,8 +66,47 @@ public class ReadDataUtils {
                 .add("startYear", StringToIntConverter.getInt(fields[5]))
                 .add("endYear", StringToIntConverter.getInt(fields[6]))
                 .add("runtimeMinutes", StringToIntConverter.getInt(fields[7]))
-                .add("genres", fields[8])
-                .build());
+                .add("genres", fields[8]);
+
+        if(!this.ratingsFilePath.isEmpty()) {
+            var jsonObject = this.ratings.get(fields[0]);
+            if(jsonObject == null) {
+                builder.add("averageRating", 0.0)
+                        .add("numVotes", 0);
+            } else {
+                builder.add("averageRating", jsonObject.get("averageRating"))
+                        .add("numVotes", jsonObject.get("numVotes"));
+            }
+        }
+
+        return new JsonContent(fields[0], builder.build());
+    }
+
+    private void getMap(List<String> ratings) {
+        Map<String, JsonObject> map = new HashMap<>();
+
+
+        ratings.forEach(x -> {
+            String[] fields = x.split("\t");
+
+            map.put(fields[0], Json.createObjectBuilder()
+                    .add("averageRating", StringToDoubleConverter.getDouble(fields[1]))
+                    .add("numVotes", StringToIntConverter.getInt(fields[2]))
+                    .build()
+            );
+        });
+
+        this.ratings = map;
+    }
+
+    private void getRatings() {
+        try {
+            List<String> linesRatings = Files.readAllLines(Path.of(this.ratingsFilePath));
+
+            getMap(linesRatings.subList(1, linesRatings.size()));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -68,6 +115,10 @@ public class ReadDataUtils {
     public void indexData() {
         try {
             List<String> lines = Files.readAllLines(Path.of(this.filePath));
+
+            if(!this.ratingsFilePath.isEmpty()) {
+                getRatings();
+            }
 
             long current = 1;
             long localBatch = this.batchSize;

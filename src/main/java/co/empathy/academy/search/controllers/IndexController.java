@@ -3,6 +3,7 @@ package co.empathy.academy.search.controllers;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch.indices.IndexState;
+import co.elastic.clients.elasticsearch.indices.PutMappingRequest;
 import co.empathy.academy.search.exception.types.IndexAlreadyExistsException;
 import co.empathy.academy.search.exception.types.IndexDoesNotExistException;
 import co.empathy.academy.search.exception.types.InternalServerException;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Private controller used for creating indices and adding documents
@@ -92,13 +94,13 @@ public class IndexController {
     /**
      * Removes and creates the films index for resetting purposes.
      * Then, id adds the mapping for the index
-     * Finally, it indexes every document stored in the title.basics.tsv file on the resources folder
+     * Finally, it indexes every document given on the file and ratings path
      */
     @Operation(summary = "Creates the field index, puts mapping and index the documents")
     @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
     @GetMapping("/index_documents")
-    public void indexDocuments(@RequestParam String filePath, @RequestParam(required = false) String ratingsPath) {
+    public void indexDocuments(@RequestParam String filmsPath, @RequestParam Optional<String> ratingsPathOpt) {
         try {
             try {
                 //Remove existing index
@@ -111,12 +113,13 @@ public class IndexController {
             client.indices().create(c -> c.index("films"));
 
             //Inserts the mapping for the films collection
-            putFilmsMapping();
+            putFilmsMapping(ratingsPathOpt.isPresent());
 
-            //Creates the reader and set the batchSize
-            ReadDataUtils rdu = new ReadDataUtils(filePath);
+            ratingsPathOpt.ifPresentOrElse(
+                    ratingsPath -> new Thread(new ReadDataUtils(filmsPath, ratingsPath)::indexData).start(),
+                    () -> new Thread(new ReadDataUtils(filmsPath)::indexData).start()
+                    );
 
-            new Thread(rdu::indexData).start();
         } catch(IOException | ElasticsearchException e) {
             throw new InternalServerException("There was a problem processing your request", e);
         }
@@ -125,9 +128,9 @@ public class IndexController {
     /**
      * Puts the mapping for the field index
      */
-    private void putFilmsMapping() {
+    private void putFilmsMapping(boolean withRatings) {
         try {
-            client.indices().putMapping(_0 -> _0
+            var mappingReqBuilder = new PutMappingRequest.Builder()
                     .index("films")
                     .properties("titleType", _1 -> _1
                             .keyword(_2 -> _2
@@ -175,8 +178,25 @@ public class IndexController {
                             .keyword(_2 -> _2
                                     .boost(1.0)
                             )
+                    );
+
+            if(withRatings) {
+                mappingReqBuilder
+                    .properties("averageRating", _0 -> _0
+                        .double_(_1 -> _1
+                                .nullValue(0.0)
+                        )
                     )
-            );
+                    .properties("numVotes", _0 -> _0
+                        .integer(_1 -> _1
+                                .nullValue(0)
+                        )
+                    );
+            }
+
+
+            client.indices().putMapping(mappingReqBuilder.build());
+
         } catch(IOException | ElasticsearchException e) {
             throw new InternalServerException("There was a problem processing your request", e);
         }
