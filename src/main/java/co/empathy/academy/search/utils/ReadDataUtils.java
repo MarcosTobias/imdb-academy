@@ -10,6 +10,7 @@ import jakarta.json.JsonObject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,10 @@ public class ReadDataUtils {
     private JsonContent getJson(String line) {
         String[] fields = line.split("\t");
 
+        var array = Json.createArrayBuilder();
+
+        Arrays.stream(fields[8].split(",")).forEach(array::add);
+
         var builder = Json.createObjectBuilder()
                 .add("titleType", fields[1])
                 .add("primaryTitle", fields[2])
@@ -66,7 +71,7 @@ public class ReadDataUtils {
                 .add("startYear", StringToIntConverter.getInt(fields[5]))
                 .add("endYear", StringToIntConverter.getInt(fields[6]))
                 .add("runtimeMinutes", StringToIntConverter.getInt(fields[7]))
-                .add("genres", fields[8]);
+                .add("genres", array.build());
 
         if(!this.ratingsFilePath.isEmpty()) {
             var jsonObject = this.ratings.get(fields[0]);

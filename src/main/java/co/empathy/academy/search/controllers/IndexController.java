@@ -100,7 +100,7 @@ public class IndexController {
     @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
     @GetMapping("/index_documents")
-    public void indexDocuments(@RequestParam String filmsPath, @RequestParam Optional<String> ratingsPathOpt) {
+    public void indexDocuments(@RequestParam String filmsPath, @RequestParam Optional<String> ratingsPath) {
         try {
             try {
                 //Remove existing index
@@ -113,10 +113,10 @@ public class IndexController {
             client.indices().create(c -> c.index("films"));
 
             //Inserts the mapping for the films collection
-            putFilmsMapping(ratingsPathOpt.isPresent());
+            putFilmsMapping(ratingsPath.isPresent());
 
-            ratingsPathOpt.ifPresentOrElse(
-                    ratingsPath -> new Thread(new ReadDataUtils(filmsPath, ratingsPath)::indexData).start(),
+            ratingsPath.ifPresentOrElse(
+                    pRatingsPath -> new Thread(new ReadDataUtils(filmsPath, pRatingsPath)::indexData).start(),
                     () -> new Thread(new ReadDataUtils(filmsPath)::indexData).start()
                     );
 
