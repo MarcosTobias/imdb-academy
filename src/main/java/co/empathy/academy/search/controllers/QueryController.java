@@ -2,6 +2,8 @@ package co.empathy.academy.search.controllers;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.json.JsonData;
@@ -34,55 +36,81 @@ public class QueryController {
      * @return Json with the names
      */
     @Operation(summary = "Performs a query on the database")
-    @Parameter(name = "q", description = "String with the query", required = true)
+    @Parameter(name = "q", description = "String with the query")
+    @Parameter(name = "type", description = "Title type. It must match exactly. Can be one or more, separated by commas")
+    @Parameter(name = "genre", description = "Genre of the field. It must match exactly. Can be one or more, separated by commas")
+    @Parameter(name = "agg", description = "Field for aggregating the query. It must match exactly")
+    @Parameter(name = "gte", description = "Specify a value and only films with higher averageRating will be shown. Expects number with a decimal")
     @ApiResponse(responseCode = "200", description="Documents obtained", content = { @Content(mediaType= "application/json")})
+    @ApiResponse(responseCode = "400", description="Wrong request", content = { @Content(mediaType= "application/json")})
+    @ApiResponse(responseCode = "500", description="Server Internal Error", content = { @Content(mediaType= "application/json")})
     @GetMapping("/search")
     public String search(
             @RequestParam(required = false) Optional<String> q,
-            @RequestParam(required = false) Optional<List<String>> filter,
-            @RequestParam(required = false) Optional<String> agg) {
+            @RequestParam(required = false) Optional<List<String>> type,
+            @RequestParam(required = false) Optional<List<String>> genre,
+            @RequestParam(required = false) Optional<String> agg,
+            @RequestParam(required = false) Optional<String> gte) {
 
         var request = new SearchRequest.Builder().index("films");
+        var boolQuery = new BoolQuery.Builder();
 
-        if(q.isPresent()) request = addSearch(q.get(), request);
+        q.ifPresent(s -> addSearch(s, boolQuery));
 
-        if(filter.isPresent())
-            for(String s : filter.get())
-                request = addFilter(s, request);
+        type.ifPresent(strings -> addTermFilter("titleType", strings, boolQuery));
 
-        if(agg.isPresent()) request = addAgg(agg.get(), request);
+        genre.ifPresent(strings -> addTermFilter("genres", strings, boolQuery));
 
-        var response = runSearch(request.build());
+        gte.ifPresent(s -> addRangeFilter("averageRating", s, boolQuery));
+
+        request.query(_0 -> _0.bool(boolQuery.build()));
+
+        agg.ifPresent(s -> addAgg(s, request));
+
+        var aux = request.build();
+
+        var response = runSearch(aux);
 
         return agg.isPresent() ? getAggs(response, agg.get() + "_agg") : getHits(response);
     }
 
-    private SearchRequest.Builder addSearch(String q, SearchRequest.Builder request) {
-        return request
-                .query(_1 -> _1
-                        .queryString(_2 -> _2
-                                .query(q)
-                                .defaultField("primaryTitle")
+    private void addRangeFilter(String field, String averageRating, BoolQuery.Builder boolQuery) {
+        boolQuery
+                .filter(_0 -> _0
+                        .range(_1 -> _1
+                                .field(field)
+                                .gte(JsonData.of(averageRating))
                         )
                 );
     }
 
-    private SearchRequest.Builder addFilter(String filter, SearchRequest.Builder request) {
-        return request
-                .query(_0 -> _0
-                        .bool(_1 -> _1
-                                .filter(_2 -> _2
-                                        .match(_3 -> _3
-                                                .field("genre")
-                                                .query(filter)
+    private void addSearch(String q, BoolQuery.Builder boolQuery) {
+        boolQuery
+                .must(_3 -> _3
+                        .match(_4 -> _4
+                                .field("primaryTitle")
+                                .query(q)
+                        )
+                );
+    }
+
+    private void addTermFilter(String fieldName, List<String> filter, BoolQuery.Builder boolQuery) {
+        boolQuery
+                .filter(_2 -> _2
+                        .terms(_3 -> _3
+                                .field(fieldName)
+                                .terms(_4 -> _4
+                                        .value(filter.stream().map(x ->
+                                                new FieldValue.Builder().stringValue(x).build()
+                                                ).toList()
                                         )
                                 )
                         )
                 );
     }
 
-    private SearchRequest.Builder addAgg(String agg, SearchRequest.Builder request) {
-        return request
+    private void addAgg(String agg, SearchRequest.Builder request) {
+        request
                 .size(0)
                 .aggregations(agg + "_agg", _0 -> _0
                         .terms(_1 -> _1

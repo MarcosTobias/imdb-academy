@@ -22,7 +22,7 @@ public class ReadDataUtils {
     private final ElasticsearchClient client = ElasticUtils.getClient();
     Map<String, JsonObject> ratings = new HashMap<>();
     //Size of the batches
-    private int batchSize = 100000;
+    private int batchSize = 25000;
     //Reader for the file
     private String filePath = "";
     private String ratingsFilePath = "";
@@ -144,7 +144,6 @@ public class ReadDataUtils {
                                         BulkOperation.of(_1 -> _1
                                                 .index(_2 -> _2
                                                         .index("films")
-                                                        .id(x.id)
                                                         .document(x.json)
                                                 )
                                         )
