@@ -127,7 +127,12 @@ public class QueryController {
     }
 
     private String getHits(SearchResponse<JsonData> response) {
-        return response.hits().hits().stream().filter(x -> x.source() != null).map(x -> x.source().toJson()).toList().toString();
+        return response.hits().hits().stream().filter(x -> x.source() != null).map(x ->
+                Json.createObjectBuilder()
+                        .add("id", x.id())
+                        .add("source", x.source().toJson())
+                        .build()
+                ).toList().toString();
     }
 
     private String getAggs(SearchResponse<JsonData> response, String aggName) {

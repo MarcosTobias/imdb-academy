@@ -28,6 +28,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers("/admin/api/**")
                 .authenticated()
                 .and()
+                .cors()
+                .and()
                 .addFilterBefore(
                         new ApiKeyAuthFilter(authenticationManager()),
                         AnonymousAuthenticationFilter.class)
