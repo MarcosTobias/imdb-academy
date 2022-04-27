@@ -1,6 +1,8 @@
 package co.empathy.academy.search.exception;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
@@ -8,6 +10,8 @@ import java.time.LocalDateTime;
 /**
  * JSON representation of an error
  */
+@Getter
+@Setter
 public class ApiError {
     //HTTP status that is going to be returned
     private HttpStatus status;
@@ -42,9 +46,5 @@ public class ApiError {
     ApiError(HttpStatus status, String message, Throwable ex) {
         this(status, ex);
         this.message = message;
-    }
-
-    public HttpStatus getStatus() {
-        return this.status;
     }
 }

@@ -17,7 +17,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -36,16 +35,15 @@ public class IndexController {
      */
     @Operation(summary = "Returns a list with the current indices")
     @ApiResponse(responseCode = "200", description="Indices obtained", content = { @Content(mediaType= "application/json")})
+    @ApiResponse(responseCode = "500", description="Internal server error", content = { @Content(mediaType= "application/json")})
     @GetMapping("/_cat/indices")
-    public Map<String, IndexState> getIndices() {
+    public Map<String, IndexState> getIndices() throws InternalServerException {
         try {
             return client.indices().get(c -> c.index("*")).result();
 
         } catch(IOException e) {
-            e.printStackTrace();
+            throw new InternalServerException("There was a problem processing your request", e);
         }
-
-        return Collections.emptyMap();
     }
 
     /**
@@ -99,6 +97,8 @@ public class IndexController {
     @Operation(summary = "Creates the field index, puts mapping and index the documents")
     @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
+    @Parameter(name = "filmsPath", description = "Local file path of the films tsv", required = true)
+    @Parameter(name = "filmsPath", description = "Local file path of the ratings tsv", required = false)
     @GetMapping("/index_documents")
     public void indexDocuments(@RequestParam String filmsPath, @RequestParam Optional<String> ratingsPath) {
         try {

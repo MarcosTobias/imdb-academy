@@ -67,9 +67,7 @@ public class QueryController {
 
         agg.ifPresent(s -> addAgg(s, request));
 
-        var aux = request.build();
-
-        var response = runSearch(aux);
+        var response = runSearch(request.build());
 
         return agg.isPresent() ? getAggs(response, agg.get() + "_agg") : getHits(response);
     }
@@ -100,9 +98,7 @@ public class QueryController {
                         .terms(_3 -> _3
                                 .field(fieldName)
                                 .terms(_4 -> _4
-                                        .value(filter.stream().map(x ->
-                                                new FieldValue.Builder().stringValue(x).build()
-                                                ).toList()
+                                        .value(filter.stream().map(FieldValue::of).toList()
                                         )
                                 )
                         )
