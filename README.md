@@ -1,8 +1,5 @@
 ## Technologies needed for the application
-* Java 17
 * Docker
-* Springboot 2.6.6
-* Maven 3.8.4
 
 ## Installation and setup
 Download the code:
@@ -15,23 +12,12 @@ Then, set up the elastic container:
 ```
 cd imdb-academy
 
-docker-compose up
+docker-compose up --build
 ```
+It takes some time, have patience.
+
 After running the command the terminal hangs, so you might need to open a new one
 &nbsp;
-
-
-Build the application with maven:
-```
-mvn compile
-```
-&nbsp;
-
-And then run the app:
-```
-mvn spring-boot:run
-```
-The terminal will also hang after this command
 
 For looking up documentation about the endpoints, 
 you may check the Swagger documentation once the app is

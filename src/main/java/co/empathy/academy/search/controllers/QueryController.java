@@ -3,6 +3,7 @@ package co.empathy.academy.search.controllers;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -53,6 +54,7 @@ public class QueryController {
             @RequestParam(required = false) Optional<String> gte) {
 
         var request = new SearchRequest.Builder().index("films");
+
         var boolQuery = new BoolQuery.Builder();
 
         q.ifPresent(s -> addSearch(s, boolQuery));
@@ -67,9 +69,20 @@ public class QueryController {
 
         agg.ifPresent(s -> addAgg(s, request));
 
+        addSort(request);
+
         var response = runSearch(request.build());
 
         return agg.isPresent() ? getAggs(response, agg.get() + "_agg") : getHits(response);
+    }
+
+    private void addSort(SearchRequest.Builder request) {
+        request.sort(_0 -> _0
+                .field(_1 -> _1
+                        .field("averageRating")
+                        .order(SortOrder.Desc)
+                )
+        );
     }
 
     private void addRangeFilter(String field, String averageRating, BoolQuery.Builder boolQuery) {
@@ -85,8 +98,8 @@ public class QueryController {
     private void addSearch(String q, BoolQuery.Builder boolQuery) {
         boolQuery
                 .must(_3 -> _3
-                        .match(_4 -> _4
-                                .field("primaryTitle")
+                        .multiMatch(_4 -> _4
+                                .fields("primaryTitle", "originalTitle")
                                 .query(q)
                         )
                 );
@@ -117,7 +130,9 @@ public class QueryController {
 
     private SearchResponse<JsonData> runSearch(SearchRequest request) {
         try {
-            return client.search(request, JsonData.class);
+            var a = client.search(request, JsonData.class);
+
+            return a;
 
         } catch(IOException e) {
             throw new InternalServerException("There was a problem connecting to ElasticSearch", e);

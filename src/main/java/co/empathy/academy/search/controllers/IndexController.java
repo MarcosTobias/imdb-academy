@@ -140,9 +140,10 @@ public class IndexController {
                     .properties("primaryTitle", _1 -> _1
                             .text(_2 -> _2
                                     .analyzer("standard")
+                                    .boost(50.0)
                                     .fields("raw", _3 -> _3
                                             .keyword(_4 -> _4
-                                                    .boost(1.0)
+                                                    .boost(50.0)
                                             )
                                     )
                             )
@@ -151,6 +152,12 @@ public class IndexController {
                     .properties("originalTitle", _1 -> _1
                             .text(_2 -> _2
                                     .analyzer("standard")
+                                    .boost(60.0)
+                                    .fields("raw", _3 -> _3
+                                            .keyword(_4 -> _4
+                                                    .boost(60.0)
+                                            )
+                                    )
                             )
                     )
                     .properties("isAdult", _1 -> _1
