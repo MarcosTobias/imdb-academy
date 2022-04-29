@@ -35,7 +35,13 @@ key: x-api-key
 
 value: searchRules
 ```
+##Important
+If you want to do indexing operations, the tsv file must be on the following path:
+```
+/Users/$USER/Documents/IMDBs
+```
 &nbsp;
+
 
 If you want to make requests directly to the elastic container, you need to add basic auth to the request.
 

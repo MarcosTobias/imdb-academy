@@ -28,3 +28,5 @@ services:
         condition: service_healthy
     links:
       - elasticsearch
+    volumes:
+      - "/Users/$USER/Documents/IMDBs:/Users/$USER/Documents/IMDBs:rw"
