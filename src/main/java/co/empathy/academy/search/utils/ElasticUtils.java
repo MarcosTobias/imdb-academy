@@ -20,7 +20,7 @@ public class ElasticUtils {
 
     //Creation of the rest client with the corresponding credentials
     private static final RestClient restClient = RestClient.builder(
-            new HttpHost("192.168.0.3", 9200)
+            new HttpHost("elasticsearch", 9200)
     ).setHttpClientConfigCallback(httpAsyncClientBuilder -> {
         credentialsProvider.setCredentials(AuthScope.ANY,
                 new UsernamePasswordCredentials("elastic", "searchPathRules"));
