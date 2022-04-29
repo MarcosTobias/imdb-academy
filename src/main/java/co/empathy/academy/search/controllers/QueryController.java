@@ -42,6 +42,8 @@ public class QueryController {
     @Parameter(name = "genre", description = "Genre of the field. It must match exactly. Can be one or more, separated by commas")
     @Parameter(name = "agg", description = "Field for aggregating the query. It must match exactly")
     @Parameter(name = "gte", description = "Specify a value and only films with higher averageRating will be shown. Expects number with a decimal")
+    @Parameter(name = "from", description = "Number of hits that is going to be skipped")
+    @Parameter(name = "size", description = "Size of hits to be returned")
     @ApiResponse(responseCode = "200", description="Documents obtained", content = { @Content(mediaType= "application/json")})
     @ApiResponse(responseCode = "400", description="Wrong request", content = { @Content(mediaType= "application/json")})
     @ApiResponse(responseCode = "500", description="Server Internal Error", content = { @Content(mediaType= "application/json")})
