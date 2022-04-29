@@ -51,9 +51,14 @@ public class QueryController {
             @RequestParam(required = false) Optional<List<String>> type,
             @RequestParam(required = false) Optional<List<String>> genre,
             @RequestParam(required = false) Optional<String> agg,
-            @RequestParam(required = false) Optional<String> gte) {
+            @RequestParam(required = false) Optional<String> gte,
+            @RequestParam(required = false) Optional<String> from,
+            @RequestParam(required = false) Optional<String> size) {
 
         var request = new SearchRequest.Builder().index("films");
+
+        from.ifPresent(f -> request.from(Integer.valueOf(f)));
+        size.ifPresent(s -> request.size(Integer.valueOf(s)));
 
         var boolQuery = new BoolQuery.Builder();
 
@@ -101,6 +106,7 @@ public class QueryController {
                         .multiMatch(_4 -> _4
                                 .fields("primaryTitle", "originalTitle")
                                 .query(q)
+                                .fuzziness("2")
                         )
                 );
     }

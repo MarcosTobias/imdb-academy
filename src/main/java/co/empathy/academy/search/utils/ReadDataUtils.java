@@ -145,6 +145,7 @@ public class ReadDataUtils {
                                                 .index(_2 -> _2
                                                         .index("films")
                                                         .document(x.json)
+                                                        .id(x.id)
                                                 )
                                         )
                                 ).toList())
