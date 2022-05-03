@@ -72,6 +72,8 @@ public class QueryController {
 
         gte.ifPresent(s -> addRangeFilter("averageRating", s, boolQuery));
 
+        removeAdultFilms(boolQuery);
+
         request.query(_0 -> _0.bool(boolQuery.build()));
 
         agg.ifPresent(s -> addAgg(s, request));
@@ -122,6 +124,16 @@ public class QueryController {
                                         .value(filter.stream().map(FieldValue::of).toList()
                                         )
                                 )
+                        )
+                );
+    }
+
+    private void removeAdultFilms(BoolQuery.Builder boolQuery) {
+        boolQuery
+                .filter(_2 -> _2
+                        .term(_3 -> _3
+                                .field("isAdult")
+                                .value(false)
                         )
                 );
     }

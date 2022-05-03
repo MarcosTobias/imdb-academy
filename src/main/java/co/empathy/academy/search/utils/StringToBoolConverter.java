@@ -7,6 +7,6 @@ public class StringToBoolConverter {
     private StringToBoolConverter(){}
 
     public static boolean getBool(String content) {
-        return content.contentEquals("0");
+        return content.contentEquals("1");
     }
 }
