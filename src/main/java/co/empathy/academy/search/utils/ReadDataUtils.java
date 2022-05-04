@@ -119,11 +119,14 @@ public class ReadDataUtils {
      */
     public void indexData() {
         try {
+            System.out.println("Started indexing");
             List<String> lines = Files.readAllLines(Path.of(this.filePath));
 
             if(!this.ratingsFilePath.isEmpty()) {
                 getRatings();
             }
+
+            System.out.println("Read");
 
             long current = 1;
             long localBatch = this.batchSize;

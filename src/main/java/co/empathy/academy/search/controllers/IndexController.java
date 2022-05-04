@@ -130,6 +130,26 @@ public class IndexController {
      */
     private void putFilmsMapping(boolean withRatings) {
         try {
+            client.indices().close(_0 -> _0.index("films"));
+
+            client.indices()
+                    .putSettings(_0 -> _0
+                            .settings(_1 -> _1
+                                    .analysis(_2 -> _2
+                                            .analyzer(
+                                                    "stop_default",
+                                                    _3 -> _3.standard(_4 -> _4
+                                                            .stopwords("_english_")
+                                                    )
+
+                                            )
+                                    )
+                            )
+                    );
+
+            client.indices().open(_0 -> _0.index("films"));
+
+
             var mappingReqBuilder = new PutMappingRequest.Builder()
                     .index("films")
                     .properties("titleType", _1 -> _1
@@ -145,6 +165,11 @@ public class IndexController {
                                             .keyword(_4 -> _4
                                                     .boost(50.0)
                                             )
+                                    ).fields("english", _3 -> _3
+                                            .text(_4 -> _4
+                                                    .analyzer("english")
+                                                    .boost(60.0)
+                                            )
                                     )
                             )
 
@@ -155,6 +180,11 @@ public class IndexController {
                                     .boost(60.0)
                                     .fields("raw", _3 -> _3
                                             .keyword(_4 -> _4
+                                                    .boost(60.0)
+                                            )
+                                    ).fields("english", _3 -> _3
+                                            .text(_4 -> _4
+                                                    .analyzer("english")
                                                     .boost(60.0)
                                             )
                                     )

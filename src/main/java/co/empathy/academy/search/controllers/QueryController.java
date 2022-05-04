@@ -5,6 +5,8 @@ import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
+import co.elastic.clients.elasticsearch._types.query_dsl.ZeroTermsQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.json.JsonData;
@@ -78,7 +80,8 @@ public class QueryController {
 
         agg.ifPresent(s -> addAgg(s, request));
 
-        addSort(request);
+        //Uncomment for getting the results sorted desc by score
+        //addSort(request);
 
         var response = runSearch(request.build());
 
@@ -108,9 +111,13 @@ public class QueryController {
         boolQuery
                 .must(_3 -> _3
                         .multiMatch(_4 -> _4
-                                .fields("primaryTitle", "originalTitle")
+                                .fields("primaryTitle", "originalTitle", "primaryTitle.english", "primaryTitle.raw")
                                 .query(q)
                                 .fuzziness("2")
+                                .operator(Operator.And)
+                                .minimumShouldMatch("1")
+                                .zeroTermsQuery(ZeroTermsQuery.All)
+                                .tieBreaker(0.4)
                         )
                 );
     }
