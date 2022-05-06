@@ -3,9 +3,7 @@ package co.empathy.academy.search.controllers;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
-import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.ZeroTermsQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -39,7 +37,7 @@ public class QueryController {
      * @return Json with the names
      */
     @Operation(summary = "Performs a query on the database")
-    @Parameter(name = "q", description = "String with the query")
+    @Parameter(name = "q", description = "String with the query. Mandatory field")
     @Parameter(name = "type", description = "Title type. It must match exactly. Can be one or more, separated by commas")
     @Parameter(name = "genre", description = "Genre of the field. It must match exactly. Can be one or more, separated by commas")
     @Parameter(name = "agg", description = "Field for aggregating the query. It must match exactly")
@@ -51,7 +49,7 @@ public class QueryController {
     @ApiResponse(responseCode = "500", description="Server Internal Error", content = { @Content(mediaType= "application/json")})
     @GetMapping("/search")
     public String search(
-            @RequestParam(required = false) Optional<String> q,
+            @RequestParam String q,
             @RequestParam(required = false) Optional<List<String>> type,
             @RequestParam(required = false) Optional<List<String>> genre,
             @RequestParam(required = false) Optional<String> agg,
@@ -66,13 +64,13 @@ public class QueryController {
 
         var boolQuery = new BoolQuery.Builder();
 
-        q.ifPresent(s -> addSearch(s, boolQuery));
+        addSearch(q, boolQuery);
 
         type.ifPresent(strings -> addTermFilter("titleType", strings, boolQuery));
 
         genre.ifPresent(strings -> addTermFilter("genres", strings, boolQuery));
 
-        gte.ifPresent(s -> addRangeFilter("averageRating", s, boolQuery));
+        gte.ifPresent(s -> addRangeFilter(s, boolQuery));
 
         removeAdultFilms(boolQuery);
 
@@ -80,28 +78,16 @@ public class QueryController {
 
         agg.ifPresent(s -> addAgg(s, request));
 
-        //Uncomment for getting the results sorted desc by score
-        //addSort(request);
-
         var response = runSearch(request.build());
 
         return agg.isPresent() ? getAggs(response, agg.get() + "_agg") : getHits(response);
     }
 
-    private void addSort(SearchRequest.Builder request) {
-        request.sort(_0 -> _0
-                .field(_1 -> _1
-                        .field("averageRating")
-                        .order(SortOrder.Desc)
-                )
-        );
-    }
-
-    private void addRangeFilter(String field, String averageRating, BoolQuery.Builder boolQuery) {
+    private void addRangeFilter(String averageRating, BoolQuery.Builder boolQuery) {
         boolQuery
                 .filter(_0 -> _0
                         .range(_1 -> _1
-                                .field(field)
+                                .field("averageRating")
                                 .gte(JsonData.of(averageRating))
                         )
                 );
@@ -114,10 +100,15 @@ public class QueryController {
                                 .fields("primaryTitle", "originalTitle", "primaryTitle.english", "primaryTitle.raw")
                                 .query(q)
                                 .fuzziness("2")
-                                .operator(Operator.And)
                                 .minimumShouldMatch("1")
                                 .zeroTermsQuery(ZeroTermsQuery.All)
                                 .tieBreaker(0.4)
+                        )
+                )
+                .should(_0 -> _0
+                        .term(_1 -> _1
+                                .field("titleType")
+                                .value("movie")
                         )
                 );
     }
@@ -157,9 +148,7 @@ public class QueryController {
 
     private SearchResponse<JsonData> runSearch(SearchRequest request) {
         try {
-            var a = client.search(request, JsonData.class);
-
-            return a;
+            return client.search(request, JsonData.class);
 
         } catch(IOException e) {
             throw new InternalServerException("There was a problem connecting to ElasticSearch", e);

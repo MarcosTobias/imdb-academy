@@ -3,7 +3,6 @@ package co.empathy.academy.search.controllers;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch.indices.IndexState;
-import co.elastic.clients.elasticsearch.indices.PutMappingRequest;
 import co.empathy.academy.search.exception.types.IndexAlreadyExistsException;
 import co.empathy.academy.search.exception.types.IndexDoesNotExistException;
 import co.empathy.academy.search.exception.types.InternalServerException;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Private controller used for creating indices and adding documents
@@ -27,6 +25,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/admin/api")
 public class IndexController {
+    private static final String INDEX = "films";
     private final ElasticsearchClient client = ElasticUtils.getClient();
 
     /**
@@ -89,6 +88,15 @@ public class IndexController {
         }
     }
 
+    private void tryCreateIndex() {
+        try {
+            //Remove existing index
+            client.indices().delete(c -> c.index(INDEX));
+        } catch(Exception e) {
+            //in case the index does not exist, ignore and keep going
+        }
+    }
+
     /**
      * Removes and creates the films index for resetting purposes.
      * Then, id adds the mapping for the index
@@ -98,144 +106,43 @@ public class IndexController {
     @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
     @Parameter(name = "filmsPath", description = "Local file path of the films tsv", required = true)
-    @Parameter(name = "filmsPath", description = "Local file path of the ratings tsv", required = false)
+    @Parameter(name = "filmsPath", description = "Local file path of the ratings tsv")
     @GetMapping("/index_documents")
-    public void indexDocuments(@RequestParam String filmsPath, @RequestParam Optional<String> ratingsPath) {
+    public void indexDocuments(@RequestParam String filmsPath, @RequestParam String ratingsPath) {
         try {
-            try {
-                //Remove existing index
-                client.indices().delete(c -> c.index("films"));
-            } catch(Exception e) {
-                //in case the index does not exist, ignore and keep going
-            }
+            tryCreateIndex();
 
             //Create the index for storing films
-            client.indices().create(c -> c.index("films"));
+            client.indices().create(c -> c.index(INDEX));
+
+            putSettings();
 
             //Inserts the mapping for the films collection
-            putFilmsMapping(ratingsPath.isPresent());
+            putMapping();
 
-            ratingsPath.ifPresentOrElse(
-                    pRatingsPath -> new Thread(new ReadDataUtils(filmsPath, pRatingsPath)::indexData).start(),
-                    () -> new Thread(new ReadDataUtils(filmsPath)::indexData).start()
-                    );
+            new Thread(() -> new ReadDataUtils().indexData(filmsPath, ratingsPath)).start();
 
         } catch(IOException | ElasticsearchException e) {
             throw new InternalServerException("There was a problem processing your request", e);
         }
     }
 
+    private void putSettings() throws IOException, ElasticsearchException {
+        client.indices().close(_0 -> _0.index(INDEX));
+
+        var customStandard = getClass().getClassLoader().getResourceAsStream("custom_standard_analyzer.json");
+
+        client.indices().putSettings(_0 -> _0.withJson(customStandard));
+
+        client.indices().open(_0 -> _0.index(INDEX));
+    }
+
     /**
      * Puts the mapping for the field index
      */
-    private void putFilmsMapping(boolean withRatings) {
-        try {
-            client.indices().close(_0 -> _0.index("films"));
+    private void putMapping() throws IOException, ElasticsearchException {
+        var mapping = getClass().getClassLoader().getResourceAsStream("mapping.json");
 
-            client.indices()
-                    .putSettings(_0 -> _0
-                            .settings(_1 -> _1
-                                    .analysis(_2 -> _2
-                                            .analyzer(
-                                                    "stop_default",
-                                                    _3 -> _3.standard(_4 -> _4
-                                                            .stopwords("_english_")
-                                                    )
-
-                                            )
-                                    )
-                            )
-                    );
-
-            client.indices().open(_0 -> _0.index("films"));
-
-
-            var mappingReqBuilder = new PutMappingRequest.Builder()
-                    .index("films")
-                    .properties("titleType", _1 -> _1
-                            .keyword(_2 -> _2
-                                    .boost(1.0)
-                            )
-                    )
-                    .properties("primaryTitle", _1 -> _1
-                            .text(_2 -> _2
-                                    .analyzer("standard")
-                                    .boost(50.0)
-                                    .fields("raw", _3 -> _3
-                                            .keyword(_4 -> _4
-                                                    .boost(50.0)
-                                            )
-                                    ).fields("english", _3 -> _3
-                                            .text(_4 -> _4
-                                                    .analyzer("english")
-                                                    .boost(60.0)
-                                            )
-                                    )
-                            )
-
-                    )
-                    .properties("originalTitle", _1 -> _1
-                            .text(_2 -> _2
-                                    .analyzer("standard")
-                                    .boost(60.0)
-                                    .fields("raw", _3 -> _3
-                                            .keyword(_4 -> _4
-                                                    .boost(60.0)
-                                            )
-                                    ).fields("english", _3 -> _3
-                                            .text(_4 -> _4
-                                                    .analyzer("english")
-                                                    .boost(60.0)
-                                            )
-                                    )
-                            )
-                    )
-                    .properties("isAdult", _1 -> _1
-                            .boolean_(_2 -> _2
-                                    .boost(1.0)
-
-                            )
-                    )
-                    .properties("startYear", _1 -> _1
-                            .integer(_2 -> _2
-                                    .nullValue(0)
-                            )
-                    )
-                    .properties("endYear", _1 -> _1
-                            .integer(_2 -> _2
-                                    .nullValue(0)
-                            )
-                    )
-                    .properties("runtimeMinutes", _1 -> _1
-                            .integer(_2 -> _2
-                                    .nullValue(0)
-                            )
-                    )
-                    .properties("genres", _1 -> _1
-                            .keyword(_2 -> _2
-                                    .boost(1.0)
-                            )
-                    );
-
-            if(withRatings) {
-                mappingReqBuilder
-                    .properties("averageRating", _0 -> _0
-                        .double_(_1 -> _1
-                                .nullValue(0.0)
-                        )
-                    )
-                    .properties("numVotes", _0 -> _0
-                        .integer(_1 -> _1
-                                .nullValue(0)
-                        )
-                    );
-            }
-
-
-            client.indices().putMapping(mappingReqBuilder.build());
-
-        } catch(IOException | ElasticsearchException e) {
-            throw new InternalServerException("There was a problem processing your request", e);
-        }
+        client.indices().putMapping(_0 -> _0.index(INDEX).withJson(mapping));
     }
 }

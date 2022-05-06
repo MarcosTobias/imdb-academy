@@ -1,0 +1,38 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "custom_standard": {
+          "type": "custom",
+          "tokenizer": "punctuation",
+          "filter": [
+            "english_stop",
+            "shingle_filter",
+            "lowercase"
+          ]
+        }
+      },
+      "tokenizer": {
+        "punctuation": {
+          "type": "pattern",
+          "pattern": "[ .,!?]",
+          "flags": "",
+          "group": -1
+        }
+      },
+      "filter": {
+        "shingle_filter": {
+          "type": "shingle",
+          "max_shingle_size": 3,
+          "min_shingle_size": 2,
+          "output_unigrams": true,
+          "token_separator": ""
+        },
+        "english_stop": {
+          "type": "stop",
+          "stopwords": "_english_"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "properties": {
+    "titleType": {
+      "type": "keyword",
+      "boost": 1.0
+    },
+    "primaryTitle": {
+      "type": "text",
+      "analyzer": "custom_standard",
+      "boost": 50.0,
+      "fields": {
+        "raw": {
+          "type": "keyword",
+          "boost": 50.0
+        },
+        "english": {
+          "type": "text",
+          "analyzer": "english",
+          "boost": 60.0
+        }
+      }
+    },
+    "originalTitle": {
+      "type": "text",
+      "analyzer": "custom_standard",
+      "boost": 60.0,
+      "fields": {
+        "raw": {
+          "type": "keyword",
+          "boost": 60.0
+        },
+        "english": {
+          "type": "text",
+          "analyzer": "english",
+          "boost": 60.0
+        }
+      }
+    },
+    "isAdult": {
+      "type": "boolean",
+      "boost": 1.0
+    },
+    "startYear": {
+      "type": "integer",
+      "null_value": 0
+    },
+    "endYear": {
+      "type": "integer",
+      "null_value": 0
+    },
+    "runtimeMinutes": {
+      "type": "integer",
+      "null_value": 0
+    },
+    "genres": {
+      "type": "keyword",
+      "boost": 1.0
+    },
+    "averageRating": {
+      "type": "double",
+      "null_value": 0.0
+    },
+    "numVotes": {
+      "type": "integer",
+      "null_value": 0
+    }
+  }
+}

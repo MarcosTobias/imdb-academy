@@ -4,5 +4,10 @@
       "name": "apiKey",
       "type": "java.lang.String",
       "description": "apiKey for authorising requests"
-  }
-] }
+    },
+    {
+      "name": "containerURL",
+      "type": "java.lang.String",
+      "description": "Description for containerURL."
+    }
+  ] }
