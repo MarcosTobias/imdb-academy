@@ -98,6 +98,11 @@ public class IndexController {
         }
     }
 
+    @Operation(summary = "Merges the tsv provided into one.")
+    @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
+    @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
+    @Parameter(name = "filmsPath", description = "Local file path of the films tsv", required = true)
+    @Parameter(name = "filmsPath", description = "Local file path of the ratings tsv", required = true)
     @PutMapping("/merge_documents")
     public void mergeDocuments(@RequestParam String filmsPath, @RequestParam String ratingsPath, @RequestParam String outputPath) {
         TSVMerger.mergeFiles(filmsPath, ratingsPath, outputPath);
@@ -112,7 +117,6 @@ public class IndexController {
     @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
     @Parameter(name = "filmsPath", description = "Local file path of the films tsv", required = true)
-    @Parameter(name = "filmsPath", description = "Local file path of the ratings tsv")
     @GetMapping("/index_documents")
     public void indexDocuments(@RequestParam String filmsPath) {
         try {
