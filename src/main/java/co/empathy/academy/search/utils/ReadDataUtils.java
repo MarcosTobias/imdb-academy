@@ -5,15 +5,14 @@ import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.empathy.academy.search.exception.types.InternalServerException;
 import co.empathy.academy.search.utils.clases.Film;
-import jakarta.json.Json;
-import jakarta.json.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Used for reading data from the file specified on batches
@@ -21,37 +20,19 @@ import java.util.Map;
 public class ReadDataUtils {
     //Size of the batches
     private static final int BATCH_SIZE = 25000;
+    private static final Logger logger = LoggerFactory.getLogger(ReadDataUtils.class);
     private final ElasticsearchClient client = ElasticUtils.getClient();
 
-    private Map<String, JsonObject> getMap(List<String> ratings) {
-        Map<String, JsonObject> map = new HashMap<>();
-
-
-        ratings.forEach(x -> {
-            String[] fields = x.split("\t");
-
-            map.put(fields[0], Json.createObjectBuilder()
-                    .add("averageRating", StringToDoubleConverter.getDouble(fields[1]))
-                    .add("numVotes", StringToIntConverter.getInt(fields[2]))
-                    .build()
-            );
-        });
-
-        return map;
-    }
     /**
      * Index the data
      */
-    public void indexData(String filmsPath, String ratingsPath) {
+    public void indexData(String filmsPath) {
         try {
-            System.out.println("Started indexing");
+            logger.info("Started indexing");
             List<String> lines = Files.readAllLines(Path.of(filmsPath));
+            List<String> headers = Arrays.stream(lines.get(0).split("\t")).toList();
 
-            List<String> linesRatings = Files.readAllLines(Path.of(ratingsPath));
-
-            var ratingsMap = getMap(linesRatings.subList(1, linesRatings.size()));
-
-            System.out.println("Read");
+            logger.info("Read");
 
             long current = 1;
             long localBatch = BATCH_SIZE;
@@ -67,7 +48,7 @@ public class ReadDataUtils {
 
                 client.bulk(_0 -> _0
                         .operations(lines.stream().skip(finalCurrent).limit(finalLocalBatch)
-                                .map(x -> new Film(x, ratingsMap).toJsonContent())
+                                .map(x -> Film.toJsonContent(x, headers))
                                 .map(x ->
                                         BulkOperation.of(_1 -> _1
                                                 .index(_2 -> _2
@@ -80,7 +61,7 @@ public class ReadDataUtils {
                 );
 
 
-                System.out.println("Indexed");
+                logger.info("Indexed");
                 current += BATCH_SIZE;
             }
         } catch(IOException | ElasticsearchException e) {

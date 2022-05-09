@@ -8,6 +8,7 @@ import co.empathy.academy.search.exception.types.IndexDoesNotExistException;
 import co.empathy.academy.search.exception.types.InternalServerException;
 import co.empathy.academy.search.utils.ElasticUtils;
 import co.empathy.academy.search.utils.ReadDataUtils;
+import co.empathy.academy.search.utils.TSVMerger;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -97,6 +98,11 @@ public class IndexController {
         }
     }
 
+    @PutMapping("/merge_documents")
+    public void mergeDocuments(@RequestParam String filmsPath, @RequestParam String ratingsPath, @RequestParam String outputPath) {
+        TSVMerger.mergeFiles(filmsPath, ratingsPath, outputPath);
+    }
+
     /**
      * Removes and creates the films index for resetting purposes.
      * Then, id adds the mapping for the index
@@ -108,7 +114,7 @@ public class IndexController {
     @Parameter(name = "filmsPath", description = "Local file path of the films tsv", required = true)
     @Parameter(name = "filmsPath", description = "Local file path of the ratings tsv")
     @GetMapping("/index_documents")
-    public void indexDocuments(@RequestParam String filmsPath, @RequestParam String ratingsPath) {
+    public void indexDocuments(@RequestParam String filmsPath) {
         try {
             tryCreateIndex();
 
@@ -120,7 +126,7 @@ public class IndexController {
             //Inserts the mapping for the films collection
             putMapping();
 
-            new Thread(() -> new ReadDataUtils().indexData(filmsPath, ratingsPath)).start();
+            new Thread(() -> new ReadDataUtils().indexData(filmsPath)).start();
 
         } catch(IOException | ElasticsearchException e) {
             throw new InternalServerException("There was a problem processing your request", e);
