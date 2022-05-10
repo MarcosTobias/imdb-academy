@@ -1,44 +1,36 @@
 {
   "properties": {
     "titleType": {
-      "type": "keyword",
-      "boost": 1.0
+      "type": "keyword"
     },
     "primaryTitle": {
       "type": "text",
       "analyzer": "custom_standard",
-      "boost": 50.0,
       "fields": {
         "raw": {
-          "type": "keyword",
-          "boost": 50.0
+          "type": "keyword"
         },
         "english": {
           "type": "text",
-          "analyzer": "english",
-          "boost": 60.0
+          "analyzer": "english"
         }
       }
     },
     "originalTitle": {
       "type": "text",
       "analyzer": "custom_standard",
-      "boost": 60.0,
       "fields": {
         "raw": {
-          "type": "keyword",
-          "boost": 60.0
+          "type": "keyword"
         },
         "english": {
           "type": "text",
-          "analyzer": "english",
-          "boost": 60.0
+          "analyzer": "english"
         }
       }
     },
     "isAdult": {
-      "type": "boolean",
-      "boost": 1.0
+      "type": "boolean"
     },
     "startYear": {
       "type": "integer",
@@ -53,8 +45,7 @@
       "null_value": 0
     },
     "genres": {
-      "type": "keyword",
-      "boost": 1.0
+      "type": "keyword"
     },
     "averageRating": {
       "type": "double",

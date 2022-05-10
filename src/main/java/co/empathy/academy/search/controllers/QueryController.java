@@ -3,8 +3,7 @@ package co.empathy.academy.search.controllers;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
-import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.ZeroTermsQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.json.JsonData;
@@ -25,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 @Tag(name = "Query controller", description = "Allows to perform queries on the IMDB database")
 @RestController
@@ -74,13 +74,36 @@ public class QueryController {
 
         removeAdultFilms(boolQuery);
 
-        request.query(_0 -> _0.bool(boolQuery.build()));
+        var functionScoreQuery = getFunctionScoreQuery(boolQuery);
+
+        request.query(_0 -> _0.functionScore(functionScoreQuery));
 
         agg.ifPresent(s -> addAgg(s, request));
 
         var response = runSearch(request.build());
 
         return agg.isPresent() ? getAggs(response, agg.get() + "_agg") : getHits(response);
+    }
+
+    private FunctionScoreQuery getFunctionScoreQuery(BoolQuery.Builder boolQuery) {
+        var nVotesValueFactor = FieldValueFactorScoreFunction.of(_0 -> _0
+                .field("numVotes")
+                .missing(0.1)
+                .modifier(FieldValueFactorModifier.Log1p)
+        );
+
+        var scoreValueFactor = FieldValueFactorScoreFunction.of(_0 -> _0
+                .field("averageRating")
+                .missing(0.1)
+                .modifier(FieldValueFactorModifier.Ln1p)
+        );
+
+        return FunctionScoreQuery.of(_0 -> _0
+                .query(boolQuery.build()._toQuery())
+                .functions(Stream.of(nVotesValueFactor, scoreValueFactor)
+                        .map(x -> FunctionScore.of(_1 -> _1.fieldValueFactor(x)))
+                        .toList())
+        );
     }
 
     private void addRangeFilter(String averageRating, BoolQuery.Builder boolQuery) {
@@ -94,23 +117,37 @@ public class QueryController {
     }
 
     private void addSearch(String q, BoolQuery.Builder boolQuery) {
-        boolQuery
-                .must(_3 -> _3
-                        .multiMatch(_4 -> _4
-                                .fields("primaryTitle", "originalTitle", "primaryTitle.english", "primaryTitle.raw")
-                                .query(q)
-                                .fuzziness("2")
-                                .minimumShouldMatch("1")
-                                .zeroTermsQuery(ZeroTermsQuery.All)
-                                .tieBreaker(0.4)
-                        )
-                )
-                .should(_0 -> _0
-                        .term(_1 -> _1
-                                .field("titleType")
-                                .value("movie")
-                        )
-                );
+        var movieQuery = TermQuery.of(_0 -> _0
+                .field("titleType")
+                .value("movie")
+                .boost(6F)
+        )._toQuery();
+
+        var primaryKeywordQuery = TermQuery.of(_0 -> _0
+                .field("primaryTitle.raw")
+                .value(q)
+                .boost(10F)
+        )._toQuery();
+
+        var primaryEnglishQuery = MatchQuery.of(_0 -> _0
+                .field("primaryTitle.english")
+                .query(q)
+                .boost(2F)
+        )._toQuery();
+
+        var primaryAndQuery = MatchQuery.of(_0 -> _0
+                .field("primaryTitle")
+                .query(q)
+                .operator(Operator.And)
+        )._toQuery();
+
+        var primaryPhraseQuery = MatchPhraseQuery.of(_0 -> _0
+                .field("primaryTitle")
+                .query(q)
+                .boost(3F)
+        )._toQuery();
+
+        boolQuery.should(List.of(movieQuery, primaryKeywordQuery, primaryEnglishQuery, primaryAndQuery, primaryPhraseQuery));
     }
 
     private void addTermFilter(String fieldName, List<String> filter, BoolQuery.Builder boolQuery) {
