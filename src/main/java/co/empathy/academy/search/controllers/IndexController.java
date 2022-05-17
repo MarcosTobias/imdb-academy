@@ -7,8 +7,7 @@ import co.empathy.academy.search.exception.types.IndexAlreadyExistsException;
 import co.empathy.academy.search.exception.types.IndexDoesNotExistException;
 import co.empathy.academy.search.exception.types.InternalServerException;
 import co.empathy.academy.search.utils.ElasticUtils;
-import co.empathy.academy.search.utils.ReadDataUtils;
-import co.empathy.academy.search.utils.TSVMerger;
+import co.empathy.academy.search.utils.IndexingUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -98,27 +97,6 @@ public class IndexController {
         }
     }
 
-    @Operation(summary = "Merges the tsv provided into one")
-    @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
-    @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
-    @Parameter(name = "filmsPath", description = "Local file path of the films tsv", required = true)
-    @Parameter(name = "ratingsPath", description = "Local file path of the ratings tsv", required = true)
-    @Parameter(name = "outputPath", description = "Path where the tsv is going to be saved", required = true)
-    @PutMapping("/merge_documents")
-    public void mergeDocuments(@RequestParam String filmsPath, @RequestParam String ratingsPath, @RequestParam String outputPath) {
-        TSVMerger.mergeFiles(filmsPath, ratingsPath, outputPath);
-    }
-
-    @Operation(summary = "Sorts the tsv provided into a new one")
-    @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
-    @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
-    @Parameter(name = "filmsPath", description = "Local file path of the films tsv", required = true)
-    @Parameter(name = "outputPath", description = "Path where the tsv is going to be saved", required = true)
-    @PutMapping("/sort_documents")
-    public void sortDocuments(@RequestParam String filmsPath, @RequestParam String outputPath) {
-        TSVMerger.sort(filmsPath, outputPath);
-    }
-
     /**
      * Removes and creates the films index for resetting purposes.
      * Then, id adds the mapping for the index
@@ -128,8 +106,22 @@ public class IndexController {
     @ApiResponse(responseCode = "200", description = "Operation successful", content = { @Content(mediaType = "application/json")})
     @ApiResponse(responseCode = "500", description = "Internal Error", content = { @Content(mediaType = "application/json")})
     @Parameter(name = "filmsPath", description = "Local file path of the films tsv", required = true)
-    @GetMapping("/index_documents")
-    public void indexDocuments(@RequestParam String filmsPath) {
+    @Parameter(name = "ratingsPath", description = "Local file path of the ratings tsv", required = true)
+    @Parameter(name = "akasPath", description = "Local file path of the akas tsv", required = true)
+    @Parameter(name = "crewPath", description = "Local file path of the crew tsv", required = true)
+    @Parameter(name = "episodesPath", description = "Local file path of the episodes tsv", required = true)
+    @Parameter(name = "principalPath", description = "Local file path of the principals tsv", required = true)
+    @Parameter(name = "nameBasicsPath", description = "Local file path of the name basics tsv", required = true)
+
+    @PostMapping("/index_documents")
+    public void indexDocuments(
+            @RequestParam String filmsPath,
+            @RequestParam String ratingsPath,
+            @RequestParam String akasPath,
+            @RequestParam String crewPath,
+            @RequestParam String episodesPath,
+            @RequestParam String principalPath,
+            @RequestParam String nameBasicsPath) {
         try {
             tryCreateIndex();
 
@@ -141,7 +133,7 @@ public class IndexController {
             //Inserts the mapping for the films collection
             putMapping();
 
-            new Thread(() -> new ReadDataUtils().indexData(filmsPath)).start();
+            new Thread(() -> new IndexingUtils().indexData(filmsPath, ratingsPath, akasPath, crewPath, episodesPath, principalPath, nameBasicsPath)).start();
 
         } catch(IOException | ElasticsearchException e) {
             throw new InternalServerException("There was a problem processing your request", e);

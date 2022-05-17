@@ -90,12 +90,14 @@ public class QueryController {
                 .field("numVotes")
                 .missing(0.1)
                 .modifier(FieldValueFactorModifier.Log1p)
+                .factor(2D)
         );
 
         var scoreValueFactor = FieldValueFactorScoreFunction.of(_0 -> _0
                 .field("averageRating")
                 .missing(0.1)
                 .modifier(FieldValueFactorModifier.Ln1p)
+                .factor(2D)
         );
 
         return FunctionScoreQuery.of(_0 -> _0
@@ -103,6 +105,8 @@ public class QueryController {
                 .functions(Stream.of(nVotesValueFactor, scoreValueFactor)
                         .map(x -> FunctionScore.of(_1 -> _1.fieldValueFactor(x)))
                         .toList())
+                .scoreMode(FunctionScoreMode.Multiply)
+                .boostMode(FunctionBoostMode.Multiply)
         );
     }
 
@@ -120,7 +124,7 @@ public class QueryController {
         var movieQuery = TermQuery.of(_0 -> _0
                 .field("titleType")
                 .value("movie")
-                .boost(6F)
+                .boost(20F)
         )._toQuery();
 
         var primaryKeywordQuery = TermQuery.of(_0 -> _0
@@ -139,15 +143,17 @@ public class QueryController {
                 .field("primaryTitle")
                 .query(q)
                 .operator(Operator.And)
+                .boost(4F)
         )._toQuery();
 
         var primaryPhraseQuery = MatchPhraseQuery.of(_0 -> _0
                 .field("primaryTitle")
                 .query(q)
-                .boost(3F)
+                .boost(9F)
         )._toQuery();
 
-        boolQuery.should(List.of(movieQuery, primaryKeywordQuery, primaryEnglishQuery, primaryAndQuery, primaryPhraseQuery));
+        boolQuery.should(movieQuery, primaryKeywordQuery, primaryEnglishQuery, primaryAndQuery);
+        boolQuery.must(primaryPhraseQuery);
     }
 
     private void addTermFilter(String fieldName, List<String> filter, BoolQuery.Builder boolQuery) {

@@ -54,6 +54,62 @@
     "numVotes": {
       "type": "integer",
       "null_value": 0
+    },
+    "akas": {
+      "type": "nested",
+      "properties": {
+        "title": {
+          "type": "text"
+        },
+        "region": {
+          "type": "text"
+        },
+        "language": {
+          "type": "text"
+        },
+        "isOriginalTitle": {
+          "type": "boolean"
+        }
+      }
+    },
+    "directors": {
+      "type": "nested",
+      "properties": {
+        "nconst": {
+          "type": "text"
+        },
+        "primaryName": {
+          "type": "text"
+        },
+        "knownForTitles": {
+          "type": "text"
+        }
+      }
+    },
+    "principals": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "nested",
+          "properties": {
+            "nconst": {
+              "type": "text"
+            },
+            "primaryTitle": {
+              "type": "text"
+            },
+            "knownForTitles": {
+              "type": "text"
+            }
+          }
+        },
+        "characters": {
+          "type": "text"
+        },
+        "category": {
+          "type": "text"
+        }
+      }
     }
   }
 }
