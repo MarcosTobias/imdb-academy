@@ -2,8 +2,6 @@ package co.empathy.academy.search.utils;
 
 import co.empathy.academy.search.utils.clases.*;
 import jakarta.json.Json;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -16,7 +14,6 @@ import java.util.regex.Pattern;
 
 public class BatchReader {
     private static final Pattern DELIMITER = Pattern.compile("\t");
-    private static final Logger logger = LoggerFactory.getLogger(BatchReader.class);
     private final BufferedReader filmsReader;
     private final BufferedReader ratingsReader;
     private final BufferedReader akasReader;
@@ -107,8 +104,6 @@ public class BatchReader {
 
             result.add(new JsonContent(filmLine.split(DELIMITER.pattern())[0], builder.build()));
             counter++;
-
-            logger.info("it: " + counter);
         }
 
         return result;

@@ -42,9 +42,9 @@ public class IndexingUtils {
                         ).toList())
                 );
 
-                logger.info("Indexed");
             }
 
+            logger.info("Indexed");
             batchReader.close();
         } catch(IOException | ElasticsearchException e) {
             throw new InternalServerException("There was a problem processing your request", e);
