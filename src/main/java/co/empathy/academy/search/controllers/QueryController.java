@@ -85,6 +85,27 @@ public class QueryController {
         return agg.isPresent() ? getAggs(response, agg.get() + "_agg") : getHits(response);
     }
 
+    @Operation(summary = "Retrieves the document with the specified index")
+    @Parameter(name = "id", description = "Id of the document. Mandatory field")
+    @ApiResponse(responseCode = "200", description="Documents obtained", content = { @Content(mediaType= "application/json")})
+    @ApiResponse(responseCode = "400", description="Wrong request", content = { @Content(mediaType= "application/json")})
+    @ApiResponse(responseCode = "500", description="Server Internal Error", content = { @Content(mediaType= "application/json")})
+    @GetMapping("/id_search")
+    public String idSearch(@RequestParam String id) {
+        var request = new SearchRequest.Builder().index("films");
+
+        request.query(_0 -> _0
+                .match(_1 -> _1
+                        .field("_id")
+                        .query(id)
+                )
+        );
+
+        var response = runSearch(request.build());
+
+        return getHits(response);
+    }
+
     private FunctionScoreQuery getFunctionScoreQuery(BoolQuery.Builder boolQuery) {
         var nVotesValueFactor = FieldValueFactorScoreFunction.of(_0 -> _0
                 .field("numVotes")
@@ -185,6 +206,7 @@ public class QueryController {
                 .aggregations(agg + "_agg", _0 -> _0
                         .terms(_1 -> _1
                                 .field(agg)
+                                .size(1000)
                         )
                 );
     }
