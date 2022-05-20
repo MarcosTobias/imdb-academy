@@ -30,3 +30,11 @@ services:
       - elasticsearch
     volumes:
       - "/Users/$USER/Documents/IMDBs:/Users/$USER/Documents/IMDBs:rw"
+
+  cerebro:
+    image: lmenezes/cerebro:0.8.3
+    container_name: cerebro-workshop
+    ports:
+      - "9000:9000"
+    external_links:
+      - elasticsearch-server:elasticsearch

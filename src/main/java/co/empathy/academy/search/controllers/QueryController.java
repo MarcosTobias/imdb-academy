@@ -7,6 +7,8 @@ import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.json.JsonData;
+import co.elastic.clients.json.jackson.JacksonJsonProvider;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.empathy.academy.search.exception.types.IndexDoesNotExistException;
 import co.empathy.academy.search.exception.types.InternalServerException;
 import co.empathy.academy.search.utils.ElasticUtils;
@@ -16,12 +18,14 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.json.Json;
+import jakarta.json.stream.JsonGenerator;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -80,9 +84,22 @@ public class QueryController {
 
         agg.ifPresent(s -> addAgg(s, request));
 
+        addSuggestion(request, q);
+
         var response = runSearch(request.build());
 
         return agg.isPresent() ? getAggs(response, agg.get() + "_agg") : getHits(response);
+    }
+
+    private void addSuggestion(SearchRequest.Builder request, String q) {
+        request.suggest(_0 -> _0
+                .text(q)
+                .suggesters("term-suggester", _1 -> _1
+                        .term(_2 -> _2
+                                .field("primaryTitle")
+                        )
+                )
+        );
     }
 
     @Operation(summary = "Retrieves the document with the specified index")
@@ -213,6 +230,11 @@ public class QueryController {
 
     private SearchResponse<JsonData> runSearch(SearchRequest request) {
         try {
+            StringWriter writer = new StringWriter();
+            JsonGenerator generator = JacksonJsonProvider.provider().createGenerator(writer);
+            request.serialize(generator, new JacksonJsonpMapper());
+            generator.flush();
+
             return client.search(request, JsonData.class);
 
         } catch(IOException e) {

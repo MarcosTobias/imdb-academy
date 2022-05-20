@@ -4,14 +4,10 @@ import co.empathy.academy.search.utils.StringToBoolConverter;
 import co.empathy.academy.search.utils.StringToIntConverter;
 import jakarta.json.Json;
 import jakarta.json.JsonObjectBuilder;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.Arrays;
 import java.util.List;
 
-@Getter
-@Setter
 public class Film {
     private static final int TCONST = 0;
     private static final int TITLE_TYPE = 1;
