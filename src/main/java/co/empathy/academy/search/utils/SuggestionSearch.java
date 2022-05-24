@@ -89,7 +89,7 @@ public class SuggestionSearch {
 
     private static void addPhraseSuggestion(String q, SuggestBuilder suggestBuilder) {
         SuggestionBuilder<PhraseSuggestionBuilder> phraseSuggestionBuilder =
-                SuggestBuilders.phraseSuggestion("primaryTitle").text(q);
+                SuggestBuilders.phraseSuggestion("primaryTitle").text(q).gramSize(3).maxErrors(3);
 
         suggestBuilder.addSuggestion("phrase-suggester", phraseSuggestionBuilder);
     }
