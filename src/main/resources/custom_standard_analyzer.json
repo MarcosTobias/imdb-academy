@@ -4,7 +4,7 @@
       "analyzer": {
         "custom_standard": {
           "type": "custom",
-          "tokenizer": "punctuation",
+          "tokenizer": "classic",
           "filter": [
             "english_stop",
             "asciifolding",
@@ -12,14 +12,6 @@
             "roman_to_latin",
             "shingle_filter"
           ]
-        }
-      },
-      "tokenizer": {
-        "punctuation": {
-          "type": "pattern",
-          "pattern": "[ .,!?]",
-          "flags": "",
-          "group": -1
         }
       },
       "filter": {

@@ -7,25 +7,23 @@ import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.json.JsonData;
-import co.elastic.clients.json.jackson.JacksonJsonProvider;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.empathy.academy.search.exception.types.IndexDoesNotExistException;
 import co.empathy.academy.search.exception.types.InternalServerException;
 import co.empathy.academy.search.utils.ElasticUtils;
+import co.empathy.academy.search.utils.SuggestionSearch;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.json.Json;
-import jakarta.json.stream.JsonGenerator;
+import jakarta.json.JsonArrayBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -48,6 +46,7 @@ public class QueryController {
     @Parameter(name = "gte", description = "Specify a value and only films with higher averageRating will be shown. Expects number with a decimal")
     @Parameter(name = "from", description = "Number of hits that is going to be skipped")
     @Parameter(name = "size", description = "Size of hits to be returned")
+    @Parameter(name = "directorId", description = "Id of the director for getting his films")
     @ApiResponse(responseCode = "200", description="Documents obtained", content = { @Content(mediaType= "application/json")})
     @ApiResponse(responseCode = "400", description="Wrong request", content = { @Content(mediaType= "application/json")})
     @ApiResponse(responseCode = "500", description="Server Internal Error", content = { @Content(mediaType= "application/json")})
@@ -59,7 +58,8 @@ public class QueryController {
             @RequestParam(required = false) Optional<String> agg,
             @RequestParam(required = false) Optional<String> gte,
             @RequestParam(required = false) Optional<String> from,
-            @RequestParam(required = false) Optional<String> size) {
+            @RequestParam(required = false) Optional<String> size,
+            @RequestParam(required = false) Optional<String> directorId) {
 
         var request = new SearchRequest.Builder().index("films");
 
@@ -82,24 +82,17 @@ public class QueryController {
 
         request.query(_0 -> _0.functionScore(functionScoreQuery));
 
-        agg.ifPresent(s -> addAgg(s, request));
+        directorId.ifPresent(i -> addDirectorFilter(i, boolQuery));
 
-        addSuggestion(request, q);
+        agg.ifPresent(s -> addAgg(s, request));
 
         var response = runSearch(request.build());
 
-        return agg.isPresent() ? getAggs(response, agg.get() + "_agg") : getHits(response);
-    }
-
-    private void addSuggestion(SearchRequest.Builder request, String q) {
-        request.suggest(_0 -> _0
-                .text(q)
-                .suggesters("term-suggester", _1 -> _1
-                        .term(_2 -> _2
-                                .field("primaryTitle")
-                        )
-                )
-        );
+        if(response.hits().hits().isEmpty()) {
+            return SuggestionSearch.run(q);
+        } else {
+            return getResult(response, agg.orElse(null));
+        }
     }
 
     @Operation(summary = "Retrieves the document with the specified index")
@@ -120,7 +113,7 @@ public class QueryController {
 
         var response = runSearch(request.build());
 
-        return getHits(response);
+        return getResult(response, null);
     }
 
     private FunctionScoreQuery getFunctionScoreQuery(BoolQuery.Builder boolQuery) {
@@ -158,7 +151,37 @@ public class QueryController {
                 );
     }
 
+    private void addDirectorFilter(String directorId, BoolQuery.Builder boolQuery) {
+        boolQuery.filter(_0 -> _0
+                .nested(_1 -> _1
+                        .path("directors")
+                        .query(_2 -> _2
+                                .match(_3 -> _3
+                                        .field("directors.nconst")
+                                        .query(directorId)
+                                )
+                        )
+                )
+        );
+    }
+
     private void addSearch(String q, BoolQuery.Builder boolQuery) {
+        if (!q.isEmpty()) {
+            addNormalSearch(q, boolQuery);
+        } else {
+            matchAllSearch(boolQuery);
+        }
+    }
+
+    private void matchAllSearch(BoolQuery.Builder boolQuery) {
+        boolQuery.must(_0 -> _0
+                .matchAll(_1 -> _1)
+        );
+    }
+
+
+    private void addNormalSearch(String q, BoolQuery.Builder boolQuery) {
+
         var movieQuery = TermQuery.of(_0 -> _0
                 .field("titleType")
                 .value("movie")
@@ -230,11 +253,6 @@ public class QueryController {
 
     private SearchResponse<JsonData> runSearch(SearchRequest request) {
         try {
-            StringWriter writer = new StringWriter();
-            JsonGenerator generator = JacksonJsonProvider.provider().createGenerator(writer);
-            request.serialize(generator, new JacksonJsonpMapper());
-            generator.flush();
-
             return client.search(request, JsonData.class);
 
         } catch(IOException e) {
@@ -244,13 +262,27 @@ public class QueryController {
         }
     }
 
-    private String getHits(SearchResponse<JsonData> response) {
-        return response.hits().hits().stream().filter(x -> x.source() != null).map(x ->
+    private JsonArrayBuilder getHits(SearchResponse<JsonData> response) {
+        var hitArray = Json.createArrayBuilder();
+
+        response.hits().hits().stream().filter(x -> x.source() != null).map(x ->
                 Json.createObjectBuilder()
                         .add("id", x.id())
                         .add("source", x.source().toJson())
                         .build()
-                ).toList().toString();
+        ).toList().forEach(hitArray::add);
+
+        return hitArray;
+    }
+
+    private String getResult(SearchResponse<JsonData> response, String aggName)  {
+        var result = Json.createObjectBuilder();
+        result.add("hits", getHits(response));
+
+        if(aggName != null)
+            result.add("aggs", getAggs(response, aggName));
+
+        return result.build().toString();
     }
 
     private String getAggs(SearchResponse<JsonData> response, String aggName) {
