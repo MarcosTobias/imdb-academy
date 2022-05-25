@@ -88,7 +88,7 @@ public class QueryController {
 
         var response = runSearch(request.build());
 
-        if(response.hits().hits().isEmpty()) {
+        if(response.hits().hits().isEmpty() && response.aggregations().size() == 0) {
             return SuggestionSearch.run(q);
         } else {
             return getResult(response, agg.orElse(null));
@@ -166,7 +166,7 @@ public class QueryController {
     }
 
     private void addSearch(String q, BoolQuery.Builder boolQuery) {
-        if (!q.isEmpty()) {
+        if (!q.isBlank()) {
             addNormalSearch(q, boolQuery);
         } else {
             matchAllSearch(boolQuery);
@@ -242,8 +242,7 @@ public class QueryController {
 
     private void addAgg(String agg, SearchRequest.Builder request) {
         request
-                .size(0)
-                .aggregations(agg + "_agg", _0 -> _0
+                .aggregations(agg, _0 -> _0
                         .terms(_1 -> _1
                                 .field(agg)
                                 .size(1000)
@@ -285,7 +284,7 @@ public class QueryController {
         return result.build().toString();
     }
 
-    private String getAggs(SearchResponse<JsonData> response, String aggName) {
+    private JsonArrayBuilder getAggs(SearchResponse<JsonData> response, String aggName) {
         var list = response.aggregations().get(aggName).sterms().buckets().array();
 
         var buckets = list.stream()
@@ -295,6 +294,6 @@ public class QueryController {
 
         buckets.forEach(result::add);
 
-        return result.build().toString();
+        return result;
     }
 }
