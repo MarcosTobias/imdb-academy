@@ -110,7 +110,7 @@ public class IndexController {
     @Parameter(name = "akasPath", description = "Local file path of the akas tsv", required = true)
     @Parameter(name = "crewPath", description = "Local file path of the crew tsv", required = true)
     @Parameter(name = "episodesPath", description = "Local file path of the episodes tsv", required = true)
-    @Parameter(name = "principalPath", description = "Local file path of the principals tsv", required = true)
+    @Parameter(name = "principalsPath", description = "Local file path of the principals tsv", required = true)
     @Parameter(name = "nameBasicsPath", description = "Local file path of the name basics tsv", required = true)
 
     @PostMapping("/index_documents")
@@ -120,7 +120,7 @@ public class IndexController {
             @RequestParam String akasPath,
             @RequestParam String crewPath,
             @RequestParam String episodesPath,
-            @RequestParam String principalPath,
+            @RequestParam String principalsPath,
             @RequestParam String nameBasicsPath) {
         try {
             tryCreateIndex();
@@ -133,7 +133,7 @@ public class IndexController {
             //Inserts the mapping for the films collection
             putMapping();
 
-            new Thread(() -> new IndexingUtils().indexData(filmsPath, ratingsPath, akasPath, crewPath, episodesPath, principalPath, nameBasicsPath)).start();
+            new Thread(() -> new IndexingUtils().indexData(filmsPath, ratingsPath, akasPath, crewPath, episodesPath, principalsPath, nameBasicsPath)).start();
 
         } catch(IOException | ElasticsearchException e) {
             throw new InternalServerException("There was a problem processing your request", e);
